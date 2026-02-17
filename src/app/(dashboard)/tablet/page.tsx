@@ -39,7 +39,7 @@ export default function TabletPage() {
     } else {
       setVersionId('');
     }
-  }, [garment?.id, garment?.currentVersionId]);
+  }, [garment, garment?.id, garment?.currentVersionId]);
 
   const createUploadUrl = trpc.assets.createUploadUrl.useMutation();
   const confirmUpload = trpc.assets.confirmUpload.useMutation();
@@ -253,6 +253,7 @@ export default function TabletPage() {
         </p>
         {pendingPreviewUrl ? (
           <div className="mt-4 flex flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- blob URL for local preview */}
             <img
               src={pendingPreviewUrl}
               alt="Preview"

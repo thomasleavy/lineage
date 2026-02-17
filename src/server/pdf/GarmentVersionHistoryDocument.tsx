@@ -159,6 +159,7 @@ export function GarmentVersionHistoryDocument({
               <View style={styles.imagesRow}>
                 {v.images.map((img, idx) => (
                   <View key={idx} style={styles.imageWrap}>
+                    {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image has no alt prop */}
                     <Image src={img.dataUrl} style={styles.versionImage} />
                     <Text style={styles.imageCaption}>{img.originalFilename}</Text>
                   </View>

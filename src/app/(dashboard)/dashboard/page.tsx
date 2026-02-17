@@ -118,6 +118,7 @@ export default function DashboardPage() {
                 className="flex flex-col rounded border border-zinc-700 overflow-hidden bg-zinc-800/50 hover:border-amber-600/50 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               >
                 {img.displayUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- dynamic S3/presigned URLs
                   <img
                     src={img.displayUrl}
                     alt={img.originalFilename}

@@ -385,6 +385,7 @@ export default function GarmentDetailPage() {
                 className="flex flex-col rounded border border-zinc-700 overflow-hidden bg-zinc-800/50 text-left hover:border-amber-600/50 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               >
                 {a.displayUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- dynamic S3/presigned URLs
                   <img
                     src={a.displayUrl}
                     alt=""
@@ -466,6 +467,7 @@ export default function GarmentDetailPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="overflow-auto max-h-[50vh] min-h-[200px] rounded border border-zinc-700 bg-zinc-800/50 p-2 flex items-center justify-center">
                       {detailModal.assets[detailModal.selectedIndex]?.displayUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- dynamic URL + zoom transform
                         <img
                           src={detailModal.assets[detailModal.selectedIndex].displayUrl!}
                           alt=""
@@ -538,6 +540,7 @@ export default function GarmentDetailPage() {
                           className="rounded border border-zinc-700 overflow-hidden bg-zinc-800/50 text-left hover:border-amber-600/50 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                         >
                           {a.displayUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- dynamic S3/presigned URLs
                             <img
                               src={a.displayUrl}
                               alt=""
