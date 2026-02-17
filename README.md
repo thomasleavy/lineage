@@ -9,7 +9,7 @@ I didn't understand absolutely everything, but was comfortable and assured of th
 
 ## How to run
 
-**Prerequisites:** Node, Docker (Postgres + optional MinIO).
+**You need:** Node, Docker (Postgres + optional MinIO).
 
 ```bash
 git clone <repo> && cd lineage && npm install
