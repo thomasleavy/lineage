@@ -1,0 +1,286 @@
+// LINEAGE – Prisma schema
+// Postgres (Supabase / Neon / local). Run: npx prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth & RBAC ─────────────────────────────────────────────────────────────
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String?
+  passwordHash String?   @map("password_hash") // null if using external IdP
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  userRoles   UserRole[]
+  sessions    Session[]
+  garmentsOwned Garment[] @relation("DesignerOwner")
+  versionsCreated GarmentVersion[] @relation("CreatedBy")
+  assetsCreated Asset[] @relation("AssetCreatedBy")
+  looksCreated Look[] @relation("LookCreatedBy")
+  changeRequestsCreated ChangeRequest[] @relation("ChangeRequestCreatedBy")
+  changeRequestsAssigned ChangeRequest[] @relation("ChangeRequestAssignedTo")
+  auditLogs   AuditLog[]
+  garmentNotesCreated GarmentNote[]
+
+  @@map("users")
+}
+
+model Role {
+  id   String @id @default(uuid())
+  name String @unique // CREATIVE_DIRECTOR, LEAD_DESIGNER, ATELIER, ASSISTANT, ARCHIVE_READONLY, LEGAL_AUDIT
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─── Core: Garments (items) & immutable versions ─────────────────────────────
+model Garment {
+  id              String   @id @default(uuid())
+  houseCode       String   @unique @map("house_code") // e.g. ARC-FW26-LOOK12-A
+  collection      String
+  category        String   // coat, dress, trouser, etc.
+  designerOwnerId String?  @map("designer_owner_id")
+  status          String   // concept, toile, sample, final, archived
+  silhouetteTags  String[] @map("silhouette_tags")
+  notes           String?  @db.Text
+  currentVersionId String? @map("current_version_id")
+  currentVersionRestoredByRollback Boolean @default(false) @map("current_version_restored_by_rollback")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  designerOwner User? @relation("DesignerOwner", fields: [designerOwnerId], references: [id], onDelete: SetNull)
+  versions      GarmentVersion[]
+  currentVersion GarmentVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  assets        Asset[]
+  lookItems     LookItem[]
+  changeRequests ChangeRequest[]
+  tabletNotes   GarmentNote[]
+
+  @@index([houseCode])
+  @@index([collection])
+  @@index([status])
+  @@index([designerOwnerId])
+  @@map("garments")
+}
+
+// Quick notes saved from Tablet (without an upload) – shown on item page
+model GarmentNote {
+  id                String   @id @default(uuid())
+  garmentId         String   @map("garment_id")
+  garmentVersionId  String?  @map("garment_version_id")
+  weaveType         String?  @map("weave_type") @db.VarChar(128)
+  tone              String?  @db.VarChar(128)
+  notes             String?  @db.Text
+  createdById       String   @map("created_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  garment        Garment        @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  garmentVersion GarmentVersion? @relation(fields: [garmentVersionId], references: [id], onDelete: SetNull)
+  createdBy      User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([garmentId])
+  @@index([garmentVersionId])
+  @@index([createdAt])
+  @@map("garment_notes")
+}
+
+model GarmentVersion {
+  id             String   @id @default(uuid())
+  garmentId      String   @map("garment_id")
+  versionNumber  Int
+  createdById    String   @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  changeSummary  String?  @map("change_summary")
+  changeDetail   String?  @map("change_detail") @db.Text
+  diffTags       String[] @map("diff_tags")
+  snapshotJson   Json     @map("snapshot_json")
+  parentVersionId String? @map("parent_version_id")
+
+  garment        Garment  @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  createdBy      User     @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  parentVersion  GarmentVersion? @relation("ParentVersion", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions  GarmentVersion[] @relation("ParentVersion")
+  garmentCurrent Garment[] @relation("CurrentVersion")
+  assets         Asset[]
+  tabletNotes    GarmentNote[]
+
+  @@unique([garmentId, versionNumber])
+  @@index([garmentId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("garment_versions")
+}
+
+// ─── Assets (S3-compatible storage keys) ──────────────────────────────────────
+model Asset {
+  id                String   @id @default(uuid())
+  garmentId         String?  @map("garment_id")
+  garmentVersionId  String?  @map("garment_version_id")
+  type              String   // photo, scan, pattern, other
+  storageKey        String   @map("storage_key")
+  originalFilename  String   @map("original_filename")
+  contentType       String   @map("content_type")
+  sizeBytes         Int      @map("size_bytes")
+  createdById       String   @map("created_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  // Demo/stock images: optional external URL and attribution (e.g. Pexels, Unsplash)
+  sourceUrl         String?  @map("source_url")
+  sourceCredit      String?  @map("source_credit") @db.Text
+
+  garment       Garment? @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  garmentVersion GarmentVersion? @relation(fields: [garmentVersionId], references: [id], onDelete: SetNull)
+  createdBy     User     @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  fabricScan    FabricScan?
+
+  @@index([garmentId])
+  @@index([garmentVersionId])
+  @@index([createdById])
+  @@map("assets")
+}
+
+model FabricScan {
+  id            String   @id @default(uuid())
+  assetId       String   @unique @map("asset_id")
+  weaveType     String?  @map("weave_type")
+  tone          String?
+  notes         String?  @db.Text
+  imageStatsJson Json?   @map("image_stats_json") // dominant color, contrast, etc.
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("fabric_scans")
+}
+
+// ─── Lookbook (run order) ────────────────────────────────────────────────────
+model Look {
+  id        String   @id @default(uuid())
+  name      String
+  collection String
+  type      String   // run_of_show, press
+  createdById String @map("created_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  createdBy User @relation("LookCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lookItems LookItem[]
+
+  @@index([createdById])
+  @@map("looks")
+}
+
+model LookItem {
+  id            String   @id @default(uuid())
+  lookId        String   @map("look_id")
+  garmentId     String   @map("garment_id")
+  orderIndex    Int      @map("order_index")
+  modelName     String?  @map("model_name")
+  stylingNotes  String?  @map("styling_notes") @db.Text
+
+  look    Look   @relation(fields: [lookId], references: [id], onDelete: Cascade)
+  garment Garment @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+
+  @@unique([lookId, orderIndex])
+  @@index([lookId])
+  @@index([garmentId])
+  @@map("look_items")
+}
+
+// ─── Change requests ────────────────────────────────────────────────────────
+model ChangeRequest {
+  id          String   @id @default(uuid())
+  garmentId   String   @map("garment_id")
+  createdById String   @map("created_by_id")
+  assignedToId String? @map("assigned_to_id")
+  status      String   // open, in_progress, done, rejected
+  requestText String   @map("request_text") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  garment    Garment @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  createdBy  User    @relation("ChangeRequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo User?   @relation("ChangeRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([garmentId])
+  @@index([status])
+  @@map("change_requests")
+}
+
+// ─── Async PDF export jobs (pg-boss + status polling) ─────────────────────────
+model ExportJob {
+  id          String    @id @default(uuid())
+  lookId      String    @map("look_id")
+  type        String    @map("type") // run_of_show, press
+  userId      String    @map("user_id")
+  status      String    @map("status") // queued, processing, ready, failed
+  storageKey  String?   @map("storage_key")
+  errorMessage String?  @map("error_message") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("export_jobs")
+}
+
+// ─── Audit log (hash chain for integrity – wow feature) ───────────────────────
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?  @map("actor_id")
+  actionType String   @map("action_type") // VIEW_GARMENT, CREATE_VERSION, EXPORT_PDF, UPLOAD_ASSET, ARCHIVE_GARMENT, LOGIN, etc.
+  entityType String   @map("entity_type") // GARMENT, VERSION, LOOK, ASSET, USER
+  entityId   String?  @map("entity_id")
+  beforeJson Json?    @map("before_json")
+  afterJson  Json?    @map("after_json")
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  requestId  String?  @map("request_id")
+  traceId    String?  @map("trace_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  // Hash chain: hash of (prev_hash + this record content) for tamper resistance
+  prevHash   String?  @map("prev_hash")
+  entryHash  String?  @map("entry_hash")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([actionType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
