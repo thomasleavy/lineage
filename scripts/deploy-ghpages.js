@@ -51,12 +51,37 @@ try {
     fs.renameSync(nextAtRoot, path.join(lineageDir, '_next'));
     console.log('Moved _next into lineage/ for correct asset URLs.');
   }
+  // Disable Jekyll so GitHub Pages serves _next (Jekyll ignores dirs starting with _)
+  fs.writeFileSync(path.join(outDir, '.nojekyll'), '', 'utf8');
   console.log('Static export written to ./out');
+
+  // Deploy to gh-pages: dotfiles: true so .nojekyll is pushed; nojekyll: true adds it if missing
+  const { publish } = require(path.join(root, 'node_modules', 'gh-pages'));
+  publish(
+    outDir,
+    {
+      dotfiles: true,
+      nojekyll: true,
+      branch: 'gh-pages',
+      silent: false,
+    },
+    (err) => {
+      try {
+        if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, maxRetries: 3 });
+      } catch (_) {}
+      if (err) {
+        console.error(err);
+        process.exit(1);
+      }
+      console.log('Deployed to https://thomasleavy.github.io/lineage/');
+      process.exit(0);
+    }
+  );
 } catch (e) {
   console.error(e.message || e);
   process.exit(1);
 } finally {
   try {
-    fs.rmSync(tmpDir, { recursive: true, maxRetries: 3 });
+    if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, maxRetries: 3 });
   } catch (_) {}
 }
