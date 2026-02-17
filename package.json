@@ -19,7 +19,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "job:worker": "tsx src/server/jobs/worker.ts",
-    "deploy": "node scripts/deploy-ghpages.js && gh-pages -d out -t true"
+    "deploy": "node scripts/deploy-ghpages.js && npx gh-pages -d out"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

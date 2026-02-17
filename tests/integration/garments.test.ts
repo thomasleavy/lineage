@@ -50,7 +50,7 @@ describe('Garments integration', () => {
           },
         },
         versionNumber: 1,
-        createdById: userId,
+        createdBy: { connect: { id: userId } },
         changeSummary: 'Initial',
         snapshotJson: { houseCode: 'TEST-FW26-001', collection: 'FW26' },
       },

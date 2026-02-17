@@ -379,18 +379,19 @@ export const garmentsRouter = router({
         parentVersionId: garment.currentVersionId,
       },
     });
+    const garmentUpdateData: Prisma.GarmentUpdateInput = {
+      currentVersion: { connect: { id: version.id } },
+      updatedAt: new Date(),
+      ...(typeof input.snapshot.collection === 'string' && { collection: input.snapshot.collection }),
+      ...(typeof input.snapshot.category === 'string' && { category: input.snapshot.category }),
+      ...(typeof input.snapshot.status === 'string' && { status: input.snapshot.status }),
+      ...(Array.isArray(input.snapshot.silhouetteTags) && { silhouetteTags: input.snapshot.silhouetteTags as string[] }),
+      ...(typeof input.snapshot.notes === 'string' && { notes: input.snapshot.notes }),
+      ...(typeof input.snapshot.designerOwnerId === 'string' && { designerOwnerId: input.snapshot.designerOwnerId }),
+    };
     await ctx.prisma.garment.update({
       where: { id: input.garmentId },
-      data: {
-        currentVersion: { connect: { id: version.id } },
-        updatedAt: new Date(),
-        ...(typeof input.snapshot.collection === 'string' && { collection: input.snapshot.collection }),
-        ...(typeof input.snapshot.category === 'string' && { category: input.snapshot.category }),
-        ...(typeof input.snapshot.status === 'string' && { status: input.snapshot.status }),
-        ...(Array.isArray(input.snapshot.silhouetteTags) && { silhouetteTags: input.snapshot.silhouetteTags as string[] }),
-        ...(typeof input.snapshot.notes === 'string' && { notes: input.snapshot.notes }),
-        ...(typeof input.snapshot.designerOwnerId === 'string' && { designerOwnerId: input.snapshot.designerOwnerId }),
-      },
+      data: garmentUpdateData,
     });
     await ctx.prisma.$executeRaw(Prisma.sql`
       UPDATE garments SET current_version_restored_by_rollback = false WHERE id::text = ${input.garmentId}
@@ -430,12 +431,13 @@ export const garmentsRouter = router({
     // Walk back to the first version that was created by a user (not a rollback)
     const isRollbackVersion = (v: { changeSummary: string | null }) =>
       (v.changeSummary?.startsWith('Rollback to v') ?? false);
-    let targetVersionId = current.parentVersionId;
+    let targetVersionId: string | null = current.parentVersionId;
     while (targetVersionId) {
-      const candidate = await ctx.prisma.garmentVersion.findUnique({
-        where: { id: targetVersionId },
-        include: { parentVersion: true },
-      });
+      const candidate: { parentVersionId: string | null; changeSummary: string | null } | null =
+        await ctx.prisma.garmentVersion.findUnique({
+          where: { id: targetVersionId },
+          include: { parentVersion: true },
+        });
       if (!candidate) break;
       if (!isRollbackVersion(candidate)) break;
       targetVersionId = candidate.parentVersionId;
@@ -443,9 +445,10 @@ export const garmentsRouter = router({
     if (!targetVersionId) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot roll back: no user-created version found in history' });
     }
+    const newCurrentId = targetVersionId;
     await ctx.prisma.garment.update({
       where: { id: input.garmentId },
-      data: { currentVersion: { connect: { id: targetVersionId } }, updatedAt: new Date() },
+      data: { currentVersion: { connect: { id: newCurrentId } }, updatedAt: new Date() },
     });
     await ctx.prisma.$executeRaw(Prisma.sql`
       UPDATE garments SET current_version_restored_by_rollback = true WHERE id::text = ${input.garmentId}
@@ -456,11 +459,11 @@ export const garmentsRouter = router({
       entityId: input.garmentId,
       afterJson: {
         previousVersionId: current.id,
-        newCurrentVersionId: targetVersionId,
+        newCurrentVersionId: newCurrentId,
       },
     });
     return ctx.prisma.garmentVersion.findUniqueOrThrow({
-      where: { id: targetVersionId },
+      where: { id: newCurrentId },
       include: { createdBy: { select: { id: true, name: true, email: true } } },
     });
   }),

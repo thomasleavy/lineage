@@ -44,6 +44,13 @@ try {
   const outDir = path.join(root, 'out');
   if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true });
   fs.cpSync(path.join(tmpDir, 'out'), outDir, { recursive: true });
+  // GitHub Pages serves at /lineage/ so assets must live at lineage/_next/ (HTML references /lineage/_next/...)
+  const lineageDir = path.join(outDir, 'lineage');
+  const nextAtRoot = path.join(outDir, '_next');
+  if (fs.existsSync(nextAtRoot) && fs.existsSync(lineageDir)) {
+    fs.renameSync(nextAtRoot, path.join(lineageDir, '_next'));
+    console.log('Moved _next into lineage/ for correct asset URLs.');
+  }
   console.log('Static export written to ./out');
 } catch (e) {
   console.error(e.message || e);

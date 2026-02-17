@@ -89,7 +89,7 @@ export default function GarmentDetailClient() {
   };
 
   const openVersionModal = () => {
-    setVersionStatus(garment?.status ?? 'concept');
+    setVersionStatus((garment?.status ?? 'concept') as 'concept' | 'toile' | 'sample' | 'final' | 'archived');
     setVersionModalOpen(true);
   };
 
