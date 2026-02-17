@@ -11,7 +11,7 @@ This deployment runs the <strong>frontend only</strong>. The backend server and 
 
 To use the full application with authentication and data persistence, run the project locally using the setup instructions <strong>below</strong>.
 
-This is a prototype for an internal garment archive and lookbook that would be for a fashion design house. With this app, the user can track garments, versions, lookbooks and notes in one place. This is very useful for ateliers and creative teams who might need a single source of truth and auditable history when they are designing clothes, shoes, etc.
+This is a prototype for an internal garment archive and lookbook that would be for a fashion design house. With this app, the user can track garments, versions, lookbooks and notes in one place. This is very useful for ateliers and creative teams who might need a single location for organising and showcasing design development, and auditable history when they are designing clothes, shoes, etc. 
 
 **Tech:** Next.js (App Router), React, TypeScript, tRPC, Prisma, Postgres, S3-compatible storage (MinIO/Supabase/R2), React for PDF generating. I also used session-based auth (httpOnly cookies, Argon2), RBAC enforced server-side, immutable versioning (every edit would creates a new version), hash-chained audit log for tracking changes made by various users, Postgres features, rate-limited PDF export (sync + async via pg-boss), and CI (GitHub Actions) with unit, integration and Playwright E2E tests. 
 
