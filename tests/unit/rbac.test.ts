@@ -29,9 +29,10 @@ describe('RBAC', () => {
     expect(canEditGarments(userRoles(['ARCHIVE_READONLY']))).toBe(false);
   });
 
-  it('canUploadAssets includes ATELIER', () => {
+  it('canUploadAssets includes ATELIER and ASSISTANT', () => {
     expect(canUploadAssets(userRoles(['ATELIER']))).toBe(true);
-    expect(canUploadAssets(userRoles(['ASSISTANT']))).toBe(false);
+    expect(canUploadAssets(userRoles(['ASSISTANT']))).toBe(true);
+    expect(canUploadAssets(userRoles(['ARCHIVE_READONLY']))).toBe(false);
   });
 
   it('isReadOnly for ARCHIVE_READONLY and LEGAL_AUDIT', () => {
