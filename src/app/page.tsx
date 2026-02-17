@@ -3,12 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-
 export default function HomePage() {
   const router = useRouter();
   useEffect(() => {
-    router.replace(`${basePath}/login`);
+    // Use /login so Next.js adds basePath once (avoids /lineage/lineage/login)
+    router.replace('/login');
   }, [router]);
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
